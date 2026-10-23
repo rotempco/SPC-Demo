@@ -1,0 +1,8 @@
+{
+  "name": "xigmatic-spc-demo",
+  "private": true,
+  "scripts": {
+    "start": "dotnet run --project XigmaticSPC.Frontend",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

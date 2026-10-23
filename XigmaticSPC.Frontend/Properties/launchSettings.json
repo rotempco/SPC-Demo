@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "XigmaticSPC.Frontend": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5088",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    }
+  }
+}
