@@ -8,7 +8,40 @@ function setup(){const storage=memory(),store=createStore(storage);return {stora
 test('dashboard initialization migrates existing demo data without replacing measurements or investigations',()=>{
   const {store,layouts}=setup(),before=JSON.stringify({measurements:store.data.measurements,events:store.data.events});
   assert.equal(layouts.active.name,'Production focus');assert.equal(layouts.active.sections.length,3);
+  assert.equal(layouts.active.sections[1].widgets[0].title,'Outer diameter · CNC-01');
+  assert.equal(layouts.active.sections[1].widgets[0].streamId,'diameter');
   assert.equal(JSON.stringify({measurements:store.data.measurements,events:store.data.events}),before);
+});
+
+test('production dashboards and new stream widgets use the scenario default instead of the industrial stream',()=>{
+  const {storage,store,layouts}=setup();
+  store.data.streams=[{id:'seal-width',name:'Seal width',station:'PACK-01'},{id:'net-weight',name:'Net weight',station:'PACK-01'}];
+  store.data.defaultStreamId='net-weight';
+  const trend=layouts.active.sections[1].widgets[0];
+  assert.equal(trend.streamId,'net-weight');assert.equal(trend.title,'Net weight · PACK-01');
+  const another=layouts.create({name:'Packing line',starter:'production'});
+  assert.equal(another.sections[1].widgets[0].streamId,'net-weight');
+  const target=another.sections[0];
+  for(const type of ['trend','measurements','baseline'])assert.equal(layouts.addWidget(target.id,{type}).streamId,'net-weight');
+  for(const type of ['metric','events','stations','inspections','note'])assert.equal(layouts.addWidget(target.id,{type}).streamId,undefined);
+  const restored=createDashboardStore(createStore(storage));
+  assert.equal(restored.active.sections[1].widgets[0].title,'Net weight · PACK-01');
+  assert.equal(restored.defaultStream.id,'net-weight');
+});
+
+test('scenario replacement resets dashboards independently and falls back to the first available stream',()=>{
+  const {store,layouts}=setup(),old=layouts.active;
+  layouts.rename({name:'Previous machining board'});
+  const measurements=JSON.stringify(store.data.measurements);
+  store.data.streams=[{id:'pack-weight',name:'Packed weight',station:'PACK-02'}];
+  store.data.defaultStreamId='removed-stream';
+  delete store.data.dashboardWorkspace;
+  const next=layouts.active;
+  assert.notEqual(next.id,old.id);assert.equal(next.name,'Production focus');
+  assert.equal(next.sections[1].widgets[0].streamId,'pack-weight');
+  assert.equal(next.sections[1].widgets[0].title,'Packed weight · PACK-02');
+  assert.equal(layouts.canUndo,false);
+  assert.equal(JSON.stringify(store.data.measurements),measurements);
 });
 test('moving a widget between sections retains identity, settings and exactly one membership',()=>{
   const {layouts}=setup(),[source,target]=layouts.active.sections,item=source.widgets[0],before=target.widgets[0];

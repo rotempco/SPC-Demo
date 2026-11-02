@@ -10,7 +10,7 @@ export function createInspectionController({store,activeSession,render,toast,dia
     return session.steps.map((streamId,index)=>{
       const base=store.stream(streamId),definition={...base,...session.definitions?.[streamId]};
       const measurement=store.data.measurements.find(m=>m.id===session.results[index]);
-      const event=store.data.events.find(e=>!e.superseded&&e.measurementId===measurement?.id&&(!e.cause?.trim()||!e.action?.trim()||!e.notes?.trim()));
+      const event=measurement&&store.requiresResponse(measurement.id)?store.data.events.find(e=>!e.superseded&&e.measurementId===measurement.id):null;
       const saved=!!measurement;
       const draft=session.drafts?.[index]??(index===session.index?session.draft:'')??'';
       const value=saved?format(measurement.value,definition):draft;

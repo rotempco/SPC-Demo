@@ -16,21 +16,26 @@ const title = (value, label) => {
   if (!text || text.length > 100) throw new Error(`${label} must contain 1–100 characters.`);
   return text;
 };
-const widget = (type, settings = {}) => ({id:id(), type, title:WIDGET_CATALOG.find(w=>w.type===type).title, size:WIDGET_CATALOG.find(w=>w.type===type).size, collapsed:false, streamId:'diameter', station:'all', metric:'measurements', chart:'individuals', count:'25', text:'Add a note for your team.', ...settings});
+const widget = (type, settings = {}) => ({id:id(), type, title:WIDGET_CATALOG.find(w=>w.type===type).title, size:WIDGET_CATALOG.find(w=>w.type===type).size, collapsed:false, station:'all', metric:'measurements', chart:'individuals', count:'25', text:'Add a note for your team.', ...settings});
 const section = (name, columns, widgets = []) => ({id:id(), title:name, description:'', columns, collapsed:false, widgets});
 
-function productionSections() {
+function productionSections(stream) {
   return [
     section('Shift snapshot',4,[widget('metric',{title:'Measurements',metric:'measurements'}),widget('metric',{title:'Within specification',metric:'acceptance'}),widget('metric',{title:'Open quality events',metric:'events'}),widget('metric',{title:'Active workstations',metric:'stations'})]),
-    section('Process & exceptions',3,[widget('trend',{title:'Outer diameter · CNC-01'}),widget('events',{title:'Needs your attention'})]),
+    section('Process & exceptions',3,[widget('trend',{title:`${stream.name} · ${stream.station}`,streamId:stream.id}),widget('events',{title:'Needs your attention'})]),
     section('The shop floor',3,[widget('stations',{title:'Workstation status'})])
   ];
 }
 
 export function createDashboardStore(store) {
+  const defaultStream = () => {
+    const selected=store.data.streams.find(s=>s.id===store.data.defaultStreamId)||store.data.streams[0];
+    if(!selected)throw new Error('A process stream is required to create a dashboard.');
+    return selected;
+  };
   function ensure() {
     if (store.data.dashboardWorkspace?.version !== 1) {
-      const board = {id:id(), name:'Production focus', description:'Your production signals, arranged around the decisions that matter.', sections:productionSections(), createdAt:stamp(), updatedAt:stamp()};
+      const board = {id:id(), name:'Production focus', description:'Your production signals, arranged around the decisions that matter.', sections:productionSections(defaultStream()), createdAt:stamp(), updatedAt:stamp()};
       store.data.dashboardWorkspace = {version:1, activeId:board.id, boards:[board], undo:[]};
       store.save();
     }
@@ -79,7 +84,7 @@ export function createDashboardStore(store) {
     const next = {...original, type, title:title(input.title || entry.title,'Widget title'), size:input.size || original.size || entry.size};
     if (!['normal','wide','full'].includes(next.size)) throw new Error('Choose a supported widget width.');
     if (['trend','measurements','baseline'].includes(type)) {
-      next.streamId = input.streamId || original.streamId || 'diameter';
+      next.streamId = input.streamId || original.streamId || defaultStream().id;
       store.stream(next.streamId);
     }
     if (['events','stations','metric','inspections'].includes(type)) {
@@ -105,6 +110,7 @@ export function createDashboardStore(store) {
     return next;
   }
   return {
+    get defaultStream(){return defaultStream();},
     get workspace(){return ensure();},
     get active(){return active();},
     get canUndo(){return ensure().undo.length>0;},
@@ -117,7 +123,7 @@ export function createDashboardStore(store) {
       const name=title(input.name,'Dashboard name');
       if (!['blank','production','copy'].includes(input.starter)) throw new Error('Choose a dashboard starter.');
       return mutate(()=>{
-        let sections=input.starter==='production'?productionSections():[section('My first section',2)];
+        let sections=input.starter==='production'?productionSections(defaultStream()):[section('My first section',2)];
         if(input.starter==='copy') sections=active().sections.map(s=>({...structuredClone(s),id:id(),widgets:s.widgets.map(w=>({...structuredClone(w),id:id()}))}));
         const board={id:id(),name,description:String(input.description||'').trim().slice(0,300),sections,createdAt:stamp(),updatedAt:stamp()};
         ensure().boards.push(board);ensure().activeId=board.id;return board;

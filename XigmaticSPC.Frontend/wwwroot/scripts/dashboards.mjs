@@ -29,7 +29,7 @@ export function createDashboardController({store,render,dialog,closeDialog,toast
     return {...board,editing,notEditing:!editing,cannotEdit:!canEdit(),undoDisabled:!canEdit()||!layouts.canUndo,editLabel:editing?'Done editing':'Edit layout',editIcon:editing?'check':'dashboard_customize',hasSections:!!board.sections.length,sectionCount:board.sections.length,widgetCount:board.sections.reduce((sum,s)=>sum+s.widgets.length,0),savedAt:time(board.updatedAt),sections:board.sections.map(s=>({...s,notEditing:!editing,draggable:String(editing),expanded:String(!s.collapsed),chevron:s.collapsed?'chevron_right':'expand_more',collapsedClass:s.collapsed?'is-collapsed':'',notEmpty:!!s.widgets.length,noDescription:!s.description,widgetCount:s.widgets.length,widgets:s.widgets.map(w=>({...w,notEditing:!editing,draggable:String(editing),expanded:String(!w.collapsed),chevron:w.collapsed?'chevron_right':'expand_more',icon:WIDGET_CATALOG.find(c=>c.type===w.type)?.icon||'widgets'}))}))};
   }
   function widgetModel(widget) {
-    const stream=widget.streamId?store.stream(widget.streamId):null;
+    const stream=['trend','measurements','baseline'].includes(widget.type)?store.stream(widget.streamId):null;
     switch(widget.type) {
       case 'metric': {
         const streams=stationStreams(widget.station),measurements=streams.flatMap(s=>store.history(s.id)),passing=measurements.filter(m=>!m.oos).length;
@@ -94,7 +94,7 @@ export function createDashboardController({store,render,dialog,closeDialog,toast
   }
   function openWidget(type,sectionId,widgetId) {
     const entry=WIDGET_CATALOG.find(c=>c.type===type);
-    const item=widgetId?layouts.findWidget(widgetId).widget:{id:'',type,title:entry.title,size:entry.size,station:'all',streamId:'diameter',metric:'measurements',chart:'individuals',count:'25',text:''};
+    const item=widgetId?layouts.findWidget(widgetId).widget:{id:'',type,title:entry.title,size:entry.size,station:'all',streamId:layouts.defaultStream.id,metric:'measurements',chart:'individuals',count:'25',text:''};
     dialog('dashboard-widget',{...item,heading:widgetId?'Configure widget':'Add '+entry.title.toLowerCase(),typeLabel:entry.title,sections:sectionOptions(sectionId),sizes:options([['normal','One column'],['wide','Two columns'],['full','Full section width']],item.size),hideMetric:type!=='metric',hideStream:!['trend','measurements','baseline'].includes(type),hideStation:!['metric','events','stations','inspections'].includes(type),hideChart:type!=='trend',hideCount:!['trend','measurements'].includes(type),hideText:type!=='note',metrics:options([['measurements','Measurement count'],['acceptance','Within specification (%)'],['events','Unresolved quality events'],['stations','Active workstations']],item.metric),streams:store.data.streams.map(s=>({...s,selected:s.id===item.streamId})),stations:options([['all','All workstations'],...[...new Set(store.data.streams.map(s=>s.station))].map(s=>[s,s])],item.station),charts:options([['individuals','Individuals'],['mr','Moving range'],['histogram','Histogram']],item.chart),counts:options([['25','Latest 25 observations'],['50','Latest 50 observations'],['all','All observations']],item.count),submitLabel:widgetId?'Save widget':'Add widget'},'CONFIGURE YOUR SIGNAL');
   }
   document.addEventListener('click',async event=>{
