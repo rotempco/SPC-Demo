@@ -28,9 +28,24 @@ export function controlChart(rows,stream,{mr=false,specs=false,height=280,refere
   const y=v=>top+(max-v)/(max-min)*h,x=i=>left+i/(Math.max(rows.length-1,1))*w;
   let svg=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${mr?'Moving range':'Individuals'} chart for ${esc(stream.station)} ${esc(stream.name)}, ${rows.length} observations"><defs><linearGradient id="chart-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3a8dca" stop-opacity=".10"/><stop offset="100%" stop-color="#3a8dca" stop-opacity="0"/></linearGradient></defs>`;
   for(let i=0;i<5;i++){const v=min+(max-min)*i/4;svg+=`<line class="grid-line" x1="${left}" y1="${y(v)}" x2="${width-right}" y2="${y(v)}"/><text text-anchor="end" x="${left-10}" y="${y(v)+3}">${fmt(v,stream.precision)}</text>`;}
-  const line=(v,label,cls)=>`<line class="${cls}" x1="${left}" y1="${y(v)}" x2="${width-right+4}" y2="${y(v)}"/><text class="chart-label" x="${width-right+10}" y="${y(v)+3}">${label} ${fmt(v,stream.precision)}</text>`;
+  const labels=[];
+  const line=(v,label,cls)=>{labels.push({v,label,at:y(v)});return `<line class="${cls}" x1="${left}" y1="${y(v)}" x2="${width-right+4}" y2="${y(v)}"/>`;};
   if(limits?.valid){svg+=line(mr?limits.mrUcl:limits.ucl,'UCL','limit-line');svg+=line(mr?0:limits.lcl,'LCL','limit-line');svg+=line(mr?limits.mr:limits.mean,'CL','center-line');}
   if(specs&&!mr){svg+=line(stream.usl,'USL','spec-line');svg+=line(stream.lsl,'LSL','spec-line');}
+  // Keep labels readable when an outlier compresses several limits together.
+  // Only move the text: the reference lines retain their exact data positions.
+  labels.sort((a,b)=>a.at-b.at);
+  const gap=20,labelTop=top+7,labelBottom=top+h-7;
+  labels.forEach((label,i)=>{label.position=Math.max(label.at,i?labels[i-1].position+gap:labelTop);});
+  if(labels.length&&labels.at(-1).position>labelBottom){
+    labels.at(-1).position=labelBottom;
+    for(let i=labels.length-2;i>=0;i--)labels[i].position=Math.min(labels[i].position,labels[i+1].position-gap);
+  }
+  labels.forEach(({v,label,at,position})=>{
+    const end=width-right;
+    if(Math.abs(position-at)>.5)svg+=`<path class="chart-label-connector" d="M${end+4},${at} H${end+10} L${end+24},${position}"/>`;
+    svg+=`<text class="chart-label" x="${end+28}" y="${position}" dominant-baseline="middle">${label} ${fmt(v,stream.precision)}</text>`;
+  });
   let path='';values.forEach((v,i)=>{if(v!=null)path+=`${i&&values[i-1]!=null?'L':'M'}${x(i).toFixed(2)},${y(v).toFixed(2)} `;});
   if(!mr&&path)svg+=`<path class="area" d="${path}L${x(rows.length-1)},${top+h} L${x(0)},${top+h} Z"/>`;
   svg+=`<path class="data-line" d="${path}"/>`;

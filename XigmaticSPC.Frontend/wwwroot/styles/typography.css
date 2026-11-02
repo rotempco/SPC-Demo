@@ -1,4 +1,5 @@
 /* Readable type stays consistent across screen sizes and follows browser font settings. */
+.chart .chart-label-connector{fill:none;stroke:var(--muted);stroke-width:1;opacity:.65}
 html{font-size:100%}body{line-height:1.6}
 :root{--sidebar-width:264px;--red:#a63f3f;--amber:#865c17;--green:#21765d;--accent:#2879af}
 :root[data-theme=dark]{--red:#ef9c9c;--amber:#e4b96c;--green:#76c7ab;--accent:#62b1e5}
